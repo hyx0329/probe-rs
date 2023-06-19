@@ -10,6 +10,7 @@ use crate::{
 use bitvec::{order::Lsb0, slice::BitSlice, vec::BitVec};
 use rusb::UsbContext;
 use std::convert::TryInto;
+use std::env;
 use std::io::{self, Read, Write};
 use std::time::Duration;
 
@@ -46,7 +47,21 @@ pub struct JtagAdapter {
 impl JtagAdapter {
     pub fn open(vid: u16, pid: u16) -> Result<Self, ftdi::Error> {
         let mut builder = ftdi::Builder::new();
-        builder.set_interface(ftdi::Interface::A)?;
+        if let Ok(interface) = env::var("FTDI_INTERFACE") {
+            match interface.as_str() {
+                "A" | "a" => builder.set_interface(ftdi::Interface::A)?,
+                "B" | "b" => builder.set_interface(ftdi::Interface::B)?,
+                "C" | "c" => builder.set_interface(ftdi::Interface::C)?,
+                "D" | "d" => builder.set_interface(ftdi::Interface::D)?,
+                _ => {
+                    return Err(ftdi::Error::InvalidInput(
+                        "Unsupported FTDI_INTERFACE! Check your environment variable!",
+                    ))
+                }
+            };
+        } else {
+            builder.set_interface(ftdi::Interface::A)?;
+        };
         let device = builder.usb_open(vid, pid)?;
 
         Ok(Self {
